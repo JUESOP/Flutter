@@ -1,5 +1,7 @@
 import 'package:contact/config/palette.dart';
+import 'package:contact/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginSignupScreen extends StatefulWidget {
   const LoginSignupScreen({Key? key}) : super(key: key);
@@ -9,6 +11,7 @@ class LoginSignupScreen extends StatefulWidget {
 }
 
 class _LoginSignupScreenState extends State<LoginSignupScreen> {
+  final _authentication = FirebaseAuth.instance;
   bool isSignupScreen = true;
   final _formKey = GlobalKey<FormState>();
   String userName = '';
@@ -187,6 +190,9 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   onSaved: (value){
                                     userName = value!;
                                   },
+                                  onChanged: (value){
+                                    userName = value;
+                                  },
                                   decoration: const InputDecoration(
                                       prefixIcon: Icon(
                                         Icons.account_circle,
@@ -216,6 +222,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   height: 8,
                                 ),
                                 TextFormField(
+                                  keyboardType: TextInputType.emailAddress,
                                   key: ValueKey(2),
                                   validator: (value){
                                     if(value!.isEmpty || !value.contains('@')) {
@@ -225,6 +232,9 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   },
                                   onSaved: (value){
                                     userEmail = value!;
+                                  },
+                                  onChanged: (value){
+                                    userEmail = value;
                                   },
                                   decoration: const InputDecoration(
                                       prefixIcon: Icon(
@@ -255,6 +265,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   height: 8,
                                 ),
                                 TextFormField(
+                                  obscureText: true,
                                   key: ValueKey(3),
                                   validator: (value){
                                     if(value!.isEmpty || value.length < 6) {
@@ -264,6 +275,9 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   },
                                   onSaved: (value){
                                     userPassword = value!;
+                                  },
+                                  onChanged: (value){
+                                    userPassword = value;
                                   },
                                   decoration: const InputDecoration(
                                       prefixIcon: Icon(
@@ -312,6 +326,9 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   onSaved: (value){
                                     userEmail = value!;
                                   },
+                                  onChanged: (value){
+                                    userEmail = value;
+                                  },
                                   decoration: const InputDecoration(
                                       prefixIcon: Icon(
                                         Icons.email,
@@ -341,6 +358,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   height: 8.0,
                                 ),
                                 TextFormField(
+                                  obscureText: true,
                                   key: ValueKey(5),
                                   validator: (value){
                                     if(value!.isEmpty || value.length < 6) {
@@ -350,6 +368,9 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   },
                                   onSaved: (value){
                                     userPassword = value!;
+                                  },
+                                  onChanged: (value){
+                                    userPassword = value;
                                   },
                                   decoration: const InputDecoration(
                                       prefixIcon: Icon(
@@ -403,31 +424,83 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                     width: 90,
                     decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(50)
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                              colors: [
-                                Colors.orange,
-                                Colors.red,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              spreadRadius: 1,
-                              blurRadius: 1,
-                              offset: Offset(0,1),
+                        borderRadius: BorderRadius.circular(50)),
+                    child: GestureDetector(
+                      onTap: () async{
+                        if(isSignupScreen) {
+                          _tryValidation();
+
+                          try {
+                            final newUser = await _authentication.createUserWithEmailAndPassword(
+                                email: userEmail,
+                                password: userPassword
+                            );
+
+                            if(newUser.user != null){
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context){
+                                  return ChatScreen();
+                                }),
+                              );
+                            }
+                          } catch(e){
+                            print(e);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content:
+                                Text('Please check your email and password'),
+                                backgroundColor: Colors.blue,
+                              ),
+                            );
+                          }
+                        }
+                        if(!isSignupScreen) {
+                         _tryValidation();
+
+                         try{
+                           final newUser =
+                           await _authentication.signInWithEmailAndPassword(
+                             email: userEmail,
+                             password: userPassword,
+                           );
+                           if(newUser.user != null){
+                             Navigator.push(
+                               context,
+                               MaterialPageRoute(builder: (context){
+                                 return ChatScreen();
+                               }),
+                             );
+                           }
+                         }catch(e){
+                           print(e);
+                         }
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                                colors: [
+                                  Colors.orange,
+                                  Colors.red,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight
                             ),
-                          ]
-                      ),
-                      child: const Icon(
-                        Icons.arrow_forward,
-                        color: Colors.white,
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                spreadRadius: 1,
+                                blurRadius: 1,
+                                offset: Offset(0,1),
+                              ),
+                            ]
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -464,7 +537,6 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
               ),
             ),
             //구글 로그인 버튼
-
           ],
         ),
       ),
