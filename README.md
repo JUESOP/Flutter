@@ -1,4 +1,4 @@
-# contact
+# CHAT-APP
 
 A new Flutter project.
 
