@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:contact/add_image/add_image.dart';
 import 'package:contact/config/palette.dart';
 import 'package:contact/screens/chat_screen.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class LoginSignupScreen extends StatefulWidget {
   const LoginSignupScreen({Key? key}) : super(key: key);
@@ -21,6 +24,11 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
   String userName = '';
   String userEmail = '';
   String userPassword = '';
+  File? userPickedImage;
+
+  void pickedImage(File image){
+    userPickedImage = image;
+  }
 
   void _tryValidation() {
     final isValid = _formKey.currentState!.validate();
@@ -35,7 +43,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
         builder: (context){
           return Dialog(
             backgroundColor: Colors.white,
-            child: AddImage()
+            child: AddImage(pickedImage)
           );
         },
     );
@@ -183,6 +191,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                       SizedBox(
                                         width: 15,
                                       ),
+                                      if(isSignupScreen)
                                       GestureDetector(
                                         onTap: (){
                                           showAlert(context);
@@ -215,8 +224,8 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   TextFormField(
                                     key: ValueKey(1),
                                     validator: (value) {
-                                      if (value!.isEmpty || value.length < 4) {
-                                        return 'Please enter at least 4 characters';
+                                      if (value!.isEmpty || value.length < 3) {
+                                        return 'Please enter at least 3 characters';
                                       }
                                       return null;
                                     },
@@ -464,6 +473,19 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                             showSpinner = true;
                           });
                           if(isSignupScreen) {
+                            if(userPickedImage == null) {
+                              setState(() {
+                                showSpinner = false;
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Please pick your image'),
+                                  backgroundColor: Colors.blue,
+                                ),
+                              );
+                              return;
+                            }
                             _tryValidation();
 
                             try {
@@ -473,18 +495,33 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   password: userPassword,
                               );
 
-                              await FirebaseFirestore.instance.collection('user').doc(newUser.user!.uid)
-                              .set({
-                                'userName' : userName,
-                                'email' : userEmail
-                              });
+                              final refImage = FirebaseStorage.instance
+                                  .ref()
+                                  .child('picked_image')
+                                  .child(newUser.user!.uid + '.png');
+
+                              await refImage.putFile(userPickedImage!);
+                              final url = await refImage.getDownloadURL();
+
+                              await FirebaseFirestore.instance
+                                  .collection('user')
+                                  .doc(newUser.user!.uid)
+                                  .set(
+                                  {
+                                    'userName' : userName,
+                                    'email' : userEmail,
+                                    'picked_image' : url
+                                  },
+                                );
 
                               if(newUser.user != null){
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context){
+                                  MaterialPageRoute(
+                                      builder: (context){
                                     return ChatScreen();
-                                  }),
+                                    }
+                                  ),
                                 );
                                 setState(() {
                                   showSpinner = false;
@@ -492,13 +529,19 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                               }
                             } catch(e){
                               print(e);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content:
-                                  Text('Please check your email and password'),
-                                  backgroundColor: Colors.blue,
-                                ),
-                              );
+                              if(mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content:
+                                    Text(
+                                        'Please check your email and password'),
+                                    backgroundColor: Colors.blue,
+                                  ),
+                                );
+                                setState(() {
+                                  showSpinner = false;
+                                });
+                              }
                             }
                           }
                           if(!isSignupScreen) {
@@ -506,7 +549,8 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
 
                            try{
                              final newUser =
-                             await _authentication.signInWithEmailAndPassword(
+                             await _authentication
+                                 .signInWithEmailAndPassword(
                                email: userEmail,
                                password: userPassword,
                              );
@@ -523,6 +567,9 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                              }
                            }catch(e){
                              print(e);
+                             setState(() {
+                               showSpinner = false;
+                             });
                            }
                           }
                         },
